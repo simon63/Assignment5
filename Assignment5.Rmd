@@ -1,0 +1,79 @@
+---
+title: "DATA 607 - Assignment5 [Tidy Data]"
+author: "Simon63"
+date: "March 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+####Package Installs
+install.packages("tidyr")  
+install.packages("dplyr")
+install.packages("ggplot2")
+
+```{r lib, warning=FALSE, message=FALSE}
+require(tidyr)
+require(dplyr)
+require(ggplot2)
+require(tibble)
+```
+
+###Load the source .CSV file
+```{r load_data}
+df <- read.csv("https://raw.githubusercontent.com/simon63/Assignment5/master/flights-wk5.csv",
+               header = T, stringsAsFactors = F, fileEncoding = "UTF-8-BOM", check.names = F)
+# header = T - using this option to use the first line for column names
+# check.names = F - using this option to avoid "Los Angeles" being converted to "Los.Angeles"
+# fileEncoding = "UTF-8-BOM" - using this option to avoid loading the "\ufeff" encoding character
+df
+```
+
+
+###Tidy Data - Assign missing column names
+```{r tidy_missing_cols}
+# Missing column names must be assigned before tbl_df() can be used
+names(df)[1:2] <- c("Airline", "n_type")
+
+# When attempting to use tbl_df(), I noticed a pop-up description, saying:
+#   "Deprecated: please use tibble::as_tibble() instead."
+df <- as_tibble(df)
+df
+```
+
+###Tidy Data - Convert columns with city names into a single variable, "city"
+```{r tidy_gather}
+# Using gather() to do the conversion and 
+# also filtering out rows with NA value in the new "n" column
+t <- gather(df, "city", "n", 3:7) %>% filter(!is.na(n))
+t
+```
+
+###Tidy Data - Assign missing values for Airline in even rows
+```{r tidy_missing_airline, warning=FALSE, message=FALSE}
+# Assign the Airline values from the "Odd" rows into the "Even" rows
+t[(c(1:length(t)) %% 2) == 0,1] <- t[(c(1:length(t)) %% 2) != 0,1]
+t
+```
+
+###Tidy Data - Use spread() function to separate "on time" and "delayed" observations into new columns
+```{r tidy_spread}
+# Spread would not work without the prior step of assigning missing Airline values
+t <- spread(t, n_type, n)
+t
+```
+
+
+###Tidy Data - Mutate by adding two new columns, "% on time" and "% delayed"
+```{r tidy_mutate}
+t <- mutate(t, pct_delayed = round((delayed / (delayed + t$'on time')) * 100, 2), pct_on_time = 100 - pct_delayed)
+t
+```
+
+###Plot Data - Comparing delays for the two airlines
+```{r plot, echo=FALSE}
+g <- ggplot(data = t, aes(x = city, y = pct_delayed, fill = Airline)) + geom_col(position = "dodge") + labs(x = "City", y ="% Delayed")
+g
+```
